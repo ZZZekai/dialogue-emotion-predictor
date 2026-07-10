@@ -15,12 +15,18 @@ env/
 
 # Generated outputs
 outputs/*
+!outputs/.gitkeep
 
 # Local data files
 data/*.xlsx
 data/*.xls
 data/*.csv
 data/*.tsv
+!data/.gitkeep
+
+# Local model files
+models/*
+!models/.gitkeep
 
 # Reference files from teammates
 new_classification_standards/

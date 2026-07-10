@@ -7,7 +7,11 @@
 ```text
 InterrogationAgent/
 ├── data/
+│   └── .gitkeep
 ├── outputs/
+│   └── .gitkeep
+├── models/
+│   └── .gitkeep
 ├── prompts/
 │   ├── emotion_prompt.txt
 │   ├── emotion_examples.example.txt
@@ -21,6 +25,8 @@ InterrogationAgent/
 ├── requirements.txt
 └── README.md
 ```
+
+`data/`、`outputs/`、`models/` 目录通过 `.gitkeep` 保留在 GitHub 上。真实输入数据、模型文件和预测结果不会提交。
 
 ## 安装依赖
 
@@ -85,6 +91,14 @@ prompts/case_background.txt
 ```
 
 ## Excel 输入要求
+
+输入 Excel 建议放在：
+
+```text
+data/
+```
+
+`data/` 目录会出现在 GitHub 上，但其中的 `.xlsx`、`.xls`、`.csv`、`.tsv` 数据文件默认被 `.gitignore` 忽略。
 
 支持两种输入格式。
 
@@ -157,6 +171,14 @@ python3 scripts/predict_emotion.py \
 ```
 
 其中 `预测情绪标签` 是后处理后的标签，`原始情绪标签` 是模型直接输出的标签。
+
+输出文件建议写到：
+
+```text
+outputs/
+```
+
+`outputs/` 目录会出现在 GitHub 上，但其中生成的结果文件默认不会提交。
 
 ## 临时保存
 
