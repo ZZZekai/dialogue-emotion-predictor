@@ -1,11 +1,13 @@
-# InterrogationAgent
+# dialogue-emotion-predictor
 
-读取 Excel 中的审讯对话数据，调用通义百炼 / DashScope OpenAI-compatible API，根据人物背景、案件背景、few-shot 示例、对话历史和当前问题，预测被谈话人在回答当前问题时的主导情绪标签。
+一个用于对话情绪预测的 Python 工具。项目读取 Excel 中的逐轮对话数据，调用通义百炼 / DashScope OpenAI-compatible API，结合人物背景、场景背景、few-shot 示例、历史对话和当前问题，预测回复方在回答当前问题时的主导情绪标签，并将结果写入新的 Excel 文件。
 
-## 项目结构
+本仓库是公开安全版本：代码、Prompt 模板和脱敏示例可以提交；真实数据、API Key、人物材料、场景材料和模型输出默认不会提交。
+
+## Project Structure
 
 ```text
-InterrogationAgent/
+dialogue-emotion-predictor/
 ├── data/
 │   └── .gitkeep
 ├── outputs/
@@ -26,9 +28,9 @@ InterrogationAgent/
 └── README.md
 ```
 
-`data/`、`outputs/`、`models/` 目录通过 `.gitkeep` 保留在 GitHub 上。真实输入数据、模型文件和预测结果不会提交。
+`data/`、`outputs/`、`models/` 通过 `.gitkeep` 保留目录结构。真实输入数据、预测结果和本地模型文件由 `.gitignore` 忽略。
 
-## 安装依赖
+## Installation
 
 ```bash
 python3 -m venv .venv
@@ -36,7 +38,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 配置 .env
+## Configuration
+
+复制环境变量模板：
 
 ```bash
 cp .env.example .env
@@ -45,23 +49,23 @@ cp .env.example .env
 编辑 `.env`：
 
 ```text
-DASHSCOPE_API_KEY=你的真实APIKey
+DASHSCOPE_API_KEY=your_api_key_here
 DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
-API Key 只从 `.env` 或系统环境变量读取，不会写死在代码中。
+不要把 `.env` 提交到 GitHub。API Key 只从 `.env` 或系统环境变量读取。
 
-## Prompt 文件
+## Prompt Materials
 
-仓库只保存脱敏模板文件：
+仓库只保存脱敏模板：
 
 ```text
-prompts/emotion_examples.example.txt
 prompts/person_profile.example.txt
 prompts/case_background.example.txt
+prompts/emotion_examples.example.txt
 ```
 
-实际运行前，复制模板并填写本地真实内容：
+运行前复制模板，并在本地填写真实内容：
 
 ```bash
 cp prompts/person_profile.example.txt prompts/person_profile.txt
@@ -69,18 +73,18 @@ cp prompts/case_background.example.txt prompts/case_background.txt
 cp prompts/emotion_examples.example.txt prompts/emotion_examples.txt
 ```
 
-脚本运行时会读取以下本地文件：
+脚本运行时读取：
 
 ```text
 prompts/emotion_prompt.txt
-prompts/emotion_examples.txt
 prompts/person_profile.txt
 prompts/case_background.txt
+prompts/emotion_examples.txt
 ```
 
-`person_profile.txt`、`case_background.txt`、`emotion_examples.txt` 默认被 `.gitignore` 忽略，避免提交真实人物、案件和示例材料。
+其中 `person_profile.txt`、`case_background.txt`、`emotion_examples.txt` 默认被 `.gitignore` 忽略，避免提交真实人物、场景和示例材料。
 
-`emotion_prompt.txt` 必须包含：
+主 Prompt 文件 `prompts/emotion_prompt.txt` 必须包含：
 
 ```text
 {person_profile}
@@ -90,7 +94,7 @@ prompts/case_background.txt
 {current_question}
 ```
 
-## Excel 输入要求
+## Input Excel Format
 
 输入 Excel 建议放在：
 
@@ -98,9 +102,7 @@ prompts/case_background.txt
 data/
 ```
 
-`data/` 目录会出现在 GitHub 上，但其中的 `.xlsx`、`.xls`、`.csv`、`.tsv` 数据文件默认被 `.gitignore` 忽略。
-
-支持两种输入格式。
+支持两种格式。
 
 格式一：Excel 已经提供历史列：
 
@@ -116,7 +118,7 @@ data/
 被谈话人回答
 ```
 
-脚本也兼容当前数据中的列名：
+脚本也兼容更通用的逐轮对话列名：
 
 ```text
 提问人员
@@ -129,9 +131,9 @@ data/
 第 N 行 history = 第 1 行到第 N-1 行的完整问答
 ```
 
-当前第 N 行的被谈话人回答不会进入 `dialogue_history`。如果 Excel 自带 `对话历史` 且里面包含当前行回答，脚本会报错拦截，避免数据泄漏。
+第 N 行的回复方回答不会进入 `dialogue_history`。如果 Excel 自带 `对话历史` 且里面包含当前行回答，脚本会报错拦截，避免数据泄漏。
 
-## 运行
+## Usage
 
 ```bash
 python3 scripts/predict_emotion.py \
@@ -140,7 +142,7 @@ python3 scripts/predict_emotion.py \
   --model qwen-plus
 ```
 
-如果你的 API Key 只授权了其他模型，例如 `qwen3-8b`：
+如果 API Key 只授权了其他模型，例如 `qwen3-8b`：
 
 ```bash
 python3 scripts/predict_emotion.py \
@@ -149,7 +151,7 @@ python3 scripts/predict_emotion.py \
   --model qwen3-8b
 ```
 
-## 测试前 10 条
+测试前 10 条：
 
 ```bash
 python3 scripts/predict_emotion.py \
@@ -159,7 +161,7 @@ python3 scripts/predict_emotion.py \
   --limit 10
 ```
 
-## 输出列
+## Output Columns
 
 输出 Excel 会保留原表字段，并新增：
 
@@ -170,7 +172,7 @@ python3 scripts/predict_emotion.py \
 原始模型输出
 ```
 
-其中 `预测情绪标签` 是后处理后的标签，`原始情绪标签` 是模型直接输出的标签。
+`预测情绪标签` 是后处理后的标签，`原始情绪标签` 是模型直接输出的标签。
 
 输出文件建议写到：
 
@@ -178,19 +180,13 @@ python3 scripts/predict_emotion.py \
 outputs/
 ```
 
-`outputs/` 目录会出现在 GitHub 上，但其中生成的结果文件默认不会提交。
-
-## 临时保存
-
 脚本每处理 20 条会自动保存一次：
 
 ```text
 outputs/temp_result.xlsx
 ```
 
-用于避免中断后完全丢失结果。
-
-## 可选情绪标签
+## Emotion Labels
 
 ```text
 neutral
@@ -207,10 +203,36 @@ sadness
 remorse
 ```
 
-如果模型输出的标签不在以上列表中，脚本会把情绪标记为：
+如果模型输出的标签不在列表中，脚本会把情绪标记为：
 
 ```text
 PARSE_ERROR
 ```
 
 并保留 `原始模型输出` 方便排查。
+
+## Public Repository Safety
+
+以下内容默认不提交：
+
+```text
+.env
+data/*.xlsx
+data/*.xls
+data/*.csv
+data/*.tsv
+outputs/*
+models/*
+prompts/person_profile.txt
+prompts/case_background.txt
+prompts/emotion_examples.txt
+new_classification_standards/
+```
+
+提交前建议检查：
+
+```bash
+git add -n .
+```
+
+确认只包含代码、README、`.env.example`、Prompt 模板和 `.gitkeep` 占位文件。
