@@ -1,0 +1,42 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables and secrets
+.env
+*.env
+!.env.example
+
+# Generated outputs
+outputs/*
+
+# Local data files
+data/*.xlsx
+data/*.xls
+data/*.csv
+data/*.tsv
+
+# Reference files from teammates
+new_classification_standards/
+
+# Local sensitive prompt materials
+prompts/person_profile.txt
+prompts/case_background.txt
+prompts/emotion_examples.txt
+!prompts/person_profile.example.txt
+!prompts/case_background.example.txt
+!prompts/emotion_examples.example.txt
+
+# IDE and OS files
+.DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
