@@ -22,6 +22,19 @@ dialogue-emotion-predictor/
 ├── scripts/
 │   ├── predict_emotion.py
 │   └── utils.py
+├── tool/
+│   ├── sql_dialogue_converter/
+│       ├── input/
+│       ├── output/
+│       ├── clean_sql_data.py
+│       ├── test_clean_sql_data.py
+│       └── README.md
+│   └── excel_comparison_merger/
+│       ├── output/
+│       ├── app.py
+│       ├── merge_excel.py
+│       ├── test_merge_excel.py
+│       └── README.md
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -160,6 +173,81 @@ python3 scripts/predict_emotion.py \
   --model qwen-plus \
   --limit 10
 ```
+
+处理包含 `index` 和多个独立对话工作表的工作簿：
+
+```bash
+python3 scripts/predict_emotion.py \
+  --input tool/sql_dialogue_converter/output/dialogue_review.xlsx \
+  --output outputs/emotion_result.xlsx \
+  --model qwen-plus \
+  --all-sheets
+```
+
+多工作表模式会跳过 `index`，每张工作表独立构造历史。进入下一张工作表时历史会重置，当前行的被谈话人回答仍不会进入历史。输出文件保留原有工作表，并在每张对话工作表中增加预测列。
+
+建议先对整个工作簿测试 10 条 API 请求：
+
+```bash
+python3 scripts/predict_emotion.py \
+  --input tool/sql_dialogue_converter/output/dialogue_review.xlsx \
+  --output outputs/emotion_result_test.xlsx \
+  --model qwen-plus \
+  --all-sheets \
+  --limit 10
+```
+
+在 `--all-sheets` 模式中，`--limit` 是整个工作簿的预测总数，而不是每张工作表分别处理 10 条。
+
+如需处理前 10 个对话工作表，并完整处理这些表中的所有轮次：
+
+```bash
+python3 scripts/predict_emotion.py \
+  --input tool/sql_dialogue_converter/output/dialogue_review.xlsx \
+  --output outputs/emotion_first10sheets.xlsx \
+  --model qwen-plus \
+  --all-sheets \
+  --sheet-limit 10
+```
+
+`--sheet-limit` 限制工作表数量，`--limit` 限制 API 预测行数，两者含义不同，也可以同时使用。
+
+默认情况下，输出文件名会自动追加运行时间，例如：
+
+```text
+emotion_result_20260713_140506.xlsx
+```
+
+如需覆盖或使用完全指定的文件名，可以增加 `--no-timestamp`。
+
+限制每张工作表只使用最近 20 轮历史：
+
+```bash
+python3 scripts/predict_emotion.py \
+  --input tool/sql_dialogue_converter/output/dialogue_review.xlsx \
+  --output outputs/emotion_result_history20.xlsx \
+  --model qwen-plus \
+  --all-sheets \
+  --history-turns 20
+```
+
+不传 `--history-turns` 时使用当前工作表的完整历史。历史窗口不会跨越工作表，也不会包含当前行的被谈话人回答。
+
+## Compare Experiments
+
+项目提供桌面工具，用于按同名工作表和相同轮次合并两份实验结果：
+
+```bash
+python3 tool/excel_comparison_merger/app.py
+```
+
+在界面中选择两个 Excel 文件并填写输出文件名。结果保存到：
+
+```text
+tool/excel_comparison_merger/output/
+```
+
+合并结果将实验1和实验2的情绪标签、原始标签、原因及原始模型输出成对排列，并用浅黄色标记预测情绪标签不同的轮次。
 
 ## Output Columns
 

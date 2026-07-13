@@ -10,18 +10,44 @@ env/
 
 # Environment variables and secrets
 .env
+.env.*
 *.env
+*.env.*
 !.env.example
+*.pem
+*.key
+
+# Sensitive datasets, database dumps, and spreadsheet materials
+*.xlsx
+*.xls
+*.sql
+*.csv
+*.tsv
+*.jsonl
+*.ndjson
+*.parquet
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.zip
+~$*
 
 # Generated outputs
 outputs/*
 !outputs/.gitkeep
 
+# SQL dialogue converter materials and generated workbooks
+tool/sql_dialogue_converter/input/*
+!tool/sql_dialogue_converter/input/.gitkeep
+tool/sql_dialogue_converter/output/*
+!tool/sql_dialogue_converter/output/.gitkeep
+tool/excel_comparison_merger/output/*
+!tool/excel_comparison_merger/output/.gitkeep
+tool/*_share.zip
+
 # Local data files
-data/*.xlsx
-data/*.xls
-data/*.csv
-data/*.tsv
+data/*
 !data/.gitkeep
 
 # Local model files
