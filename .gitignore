@@ -20,6 +20,11 @@ env/
 # Sensitive datasets, database dumps, and spreadsheet materials
 *.xlsx
 *.xls
+*.docx
+*.doc
+*.pdf
+*.pptx
+*.ppt
 *.sql
 *.csv
 *.tsv
@@ -31,6 +36,8 @@ env/
 *.sqlite3
 *.dump
 *.zip
+*.7z
+*.rar
 ~$*
 
 # Generated outputs
@@ -46,6 +53,12 @@ tool/excel_comparison_merger/output/*
 !tool/excel_comparison_merger/output/.gitkeep
 tool/*_share.zip
 
+# Downstream generation outputs
+downstream/outputs/*
+!downstream/outputs/.gitkeep
+downstream/materials/*
+!downstream/materials/.gitkeep
+
 # Local data files
 data/*
 !data/.gitkeep
@@ -57,6 +70,9 @@ models/*
 # Reference files from teammates
 new_classification_standards/
 
+# Internal presentation packages containing source data and case materials
+成果/
+
 # Local sensitive prompt materials
 prompts/person_profile.txt
 prompts/case_background.txt
@@ -64,6 +80,10 @@ prompts/emotion_examples.txt
 !prompts/person_profile.example.txt
 !prompts/case_background.example.txt
 !prompts/emotion_examples.example.txt
+
+# Local profile registry and sensitive story backgrounds
+local_profiles/*
+!local_profiles/.gitkeep
 
 # IDE and OS files
 .DS_Store

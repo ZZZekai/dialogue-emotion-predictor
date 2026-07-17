@@ -7,6 +7,12 @@ import pandas as pd
 from openpyxl import load_workbook
 from tqdm import tqdm
 
+from profile_loader import (
+    ProfileRegistry,
+    apply_profile_to_emotion_prompt_parts,
+    load_profile_registry,
+)
+
 from utils import (
     ALLOWED_EMOTIONS,
     build_prompt,
@@ -87,6 +93,21 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--env", default=".env", help="Environment file path. Default: .env.")
     parser.add_argument("--prompts-dir", default="prompts", help="Prompt directory. Default: prompts.")
+    parser.add_argument(
+        "--profile-config",
+        default="local_profiles/profiles.json",
+        help="Shared local profile registry JSON.",
+    )
+    parser.add_argument(
+        "--profile-id",
+        default=None,
+        help="Explicit profile override. Otherwise resolve by input filename and sheet.",
+    )
+    parser.add_argument(
+        "--allow-legacy-profile",
+        action="store_true",
+        help="Allow unmapped sheets to fall back to prompts/person_profile.txt and case_background.txt.",
+    )
     parser.add_argument("--temperature", type=float, default=0.0, help="Model temperature.")
     parser.add_argument("--max-tokens", type=int, default=512, help="Max output tokens.")
     return parser.parse_args()
@@ -390,6 +411,9 @@ def process_all_sheets(
     history_turns: int | None,
     limit: int | None,
     sheet_limit: int | None = None,
+    profile_registry: ProfileRegistry | None = None,
+    profile_id: str | None = None,
+    allow_legacy_profile: bool = True,
 ) -> int:
     """Process every chat sheet with history reset at each worksheet boundary."""
     workbook = load_workbook(input_path)
@@ -431,11 +455,30 @@ def process_all_sheets(
             worksheet = workbook[sheet_name]
             df = worksheet_to_dataframe(worksheet)
             remaining = None if limit is None else limit - processed_total
+            sheet_prompt_parts = prompt_parts
+            if profile_registry is not None:
+                try:
+                    profile = profile_registry.resolve(
+                        input_path, sheet_name, profile_id=profile_id
+                    )
+                    sheet_prompt_parts = apply_profile_to_emotion_prompt_parts(
+                        prompt_parts, profile
+                    )
+                    LOGGER.info(
+                        "工作表 %s 使用人物档案 %s（%s）",
+                        sheet_name,
+                        profile.profile_id,
+                        profile.respondent_name,
+                    )
+                except KeyError:
+                    if not allow_legacy_profile:
+                        raise
+                    LOGGER.warning("工作表 %s 未绑定档案，使用旧版 Prompt 背景", sheet_name)
             result_df, processed = process_dataframe(
                 df=df,
                 client=client,
                 model=model,
-                prompt_parts=prompt_parts,
+                prompt_parts=sheet_prompt_parts,
                 temperature=temperature,
                 max_tokens=max_tokens,
                 history_turns=history_turns,
@@ -482,6 +525,13 @@ def main() -> None:
         raise FileNotFoundError(f"Input Excel file not found: {input_path}")
 
     prompt_parts = load_prompt_parts(args.prompts_dir)
+    try:
+        profile_registry = load_profile_registry(args.profile_config)
+    except FileNotFoundError:
+        if not args.allow_legacy_profile:
+            raise
+        profile_registry = None
+        LOGGER.warning("未找到人物档案注册表，使用旧版 Prompt 背景")
     client = create_openai_client(args.env)
     model = get_model_name(args.model)
 
@@ -497,17 +547,47 @@ def main() -> None:
             history_turns=args.history_turns,
             limit=args.limit,
             sheet_limit=args.sheet_limit,
+            profile_registry=profile_registry,
+            profile_id=args.profile_id,
+            allow_legacy_profile=args.allow_legacy_profile,
         )
         print(f"Saved result to: {output_path}")
         print(f"Processed prediction rows: {processed_total}")
         return
 
-    df = pd.read_excel(input_path, sheet_name=parse_sheet_arg(args.sheet))
+    selected_sheet = parse_sheet_arg(args.sheet)
+    excel_file = pd.ExcelFile(input_path)
+    sheet_name = (
+        excel_file.sheet_names[selected_sheet]
+        if isinstance(selected_sheet, int)
+        else selected_sheet
+    )
+    sheet_prompt_parts = prompt_parts
+    if profile_registry is not None:
+        try:
+            profile = profile_registry.resolve(
+                input_path, sheet_name, profile_id=args.profile_id
+            )
+            sheet_prompt_parts = apply_profile_to_emotion_prompt_parts(
+                prompt_parts, profile
+            )
+            LOGGER.info(
+                "工作表 %s 使用人物档案 %s（%s）",
+                sheet_name,
+                profile.profile_id,
+                profile.respondent_name,
+            )
+        except KeyError:
+            if not args.allow_legacy_profile:
+                raise
+            LOGGER.warning("工作表 %s 未绑定档案，使用旧版 Prompt 背景", sheet_name)
+
+    df = pd.read_excel(input_path, sheet_name=sheet_name)
     work_df, processed_count = process_dataframe(
         df=df,
         client=client,
         model=model,
-        prompt_parts=prompt_parts,
+        prompt_parts=sheet_prompt_parts,
         temperature=args.temperature,
         max_tokens=args.max_tokens,
         history_turns=args.history_turns,

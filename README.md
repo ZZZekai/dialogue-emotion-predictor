@@ -4,6 +4,65 @@
 
 本仓库是公开安全版本：代码、Prompt 模板和脱敏示例可以提交；真实数据、API Key、人物材料、场景材料和模型输出默认不会提交。
 
+## 项目概览
+
+本项目研究的问题是：**在不读取当前轮真实回答的前提下，能否根据谈话上下文预测
+被谈话人的主导情绪，并利用该情绪改善下游模拟回答的真实性。**
+
+系统包含三个主要环节：
+
+```text
+原始 SQL / Excel 对话
+        │
+        ▼
+对话清洗与逐轮工作表整理
+        │
+        ▼
+qwen3-8b 情绪预测
+（人物背景 + 案件背景 + few-shot + 真实历史 + 当前问题）
+        │
+        ├──────────────┐
+        ▼              ▼
+无情绪基线回答      情绪增强回答
+deepseek-v4-flash   deepseek-v4-flash + 情绪标签
+        │              │
+        └──────┬───────┘
+               ▼
+与当前轮真实回答并排输出到 Excel
+```
+
+下游对照实验中的两组回答使用相同的背景、历史、当前问题、模型和生成参数。两组之间
+唯一的核心变量是：情绪增强组会额外收到小模型预测的情绪标签，基线组不会收到。
+
+## 核心设计
+
+- **逐轮预测**：预测的是“被谈话人在回答当前问题时可能出现的情绪”，不是读取已有
+  回答后进行文本分类。
+- **防止答案泄漏**：第 N 轮只使用第 1 至 N-1 轮真实问答；第 N 轮真实回答不会进入
+  情绪模型或生成模型。
+- **受控开放环实验**：模型生成的回答不会传入下一轮，下一轮仍使用真实历史，便于
+  逐轮比较并控制误差传播。闭环模拟可作为后续独立实验。
+- **工作表隔离**：多工作表代表不同对话时，每张表都会重置历史和对话状态。
+- **人物档案绑定**：通过 `输入文件名::工作表名` 为不同场景绑定独立人物背景，情绪
+  预测和下游生成共用同一份档案。
+- **可复现实验参数**：情绪预测默认 temperature 为 `0.0`；下游回答生成默认
+  temperature 为 `0.4`，也可以通过命令行覆盖。
+- **事实边界控制**：下游生成不得凭空补充人物、金额、日期、地点等具体事实，缺少
+  依据时应表达不确定。
+- **表达约束**：回答长度会参考此前真实回答动态调整，并清理“沉默片刻”“低下头”
+  等舞台动作，避免过度表演。
+
+## 展示建议
+
+向老师或同学介绍时，可以按照以下顺序演示：
+
+1. 展示原始 Excel 的“提问人员”和“被谈话人”两列；
+2. 说明情绪模型只能看到当前问题之前的真实历史；
+3. 展示新增的预测标签、原始标签、预测原因和原始模型输出；
+4. 展示下游 Excel 中并排的真实回答、无情绪回答和情绪增强回答；
+5. 对比同一轮中两种模拟回答在措辞、配合程度和情绪表达上的差异；
+6. 使用 Excel 合并工具比较全历史、20 轮历史或不同 Prompt 版本的实验结果。
+
 ## Project Structure
 
 ```text
@@ -14,6 +73,13 @@ dialogue-emotion-predictor/
 │   └── .gitkeep
 ├── models/
 │   └── .gitkeep
+├── local_profiles/
+│   └── .gitkeep
+├── downstream/
+│   ├── prompts/
+│   ├── scripts/
+│   ├── outputs/
+│   └── README.md
 ├── prompts/
 │   ├── emotion_prompt.txt
 │   ├── emotion_examples.example.txt
@@ -21,14 +87,15 @@ dialogue-emotion-predictor/
 │   └── case_background.example.txt
 ├── scripts/
 │   ├── predict_emotion.py
+│   ├── profile_loader.py
 │   └── utils.py
 ├── tool/
 │   ├── sql_dialogue_converter/
-│       ├── input/
-│       ├── output/
-│       ├── clean_sql_data.py
-│       ├── test_clean_sql_data.py
-│       └── README.md
+│   │   ├── input/
+│   │   ├── output/
+│   │   ├── clean_sql_data.py
+│   │   ├── test_clean_sql_data.py
+│   │   └── README.md
 │   └── excel_comparison_merger/
 │       ├── output/
 │       ├── app.py
@@ -37,11 +104,35 @@ dialogue-emotion-predictor/
 │       └── README.md
 ├── .env.example
 ├── .gitignore
+├── profile_config.example.json
 ├── requirements.txt
 └── README.md
 ```
 
+`downstream/` 提供端到端下游验证：实时调用小模型预测情绪，再使用
+`deepseek-v4-flash` 分别生成无情绪回答和情绪增强回答，最后与真实回答并排输出。
+具体用法见 `downstream/README.md`。
+
 `data/`、`outputs/`、`models/` 通过 `.gitkeep` 保留目录结构。真实输入数据、预测结果和本地模型文件由 `.gitignore` 忽略。
+
+## Shared Profiles
+
+本体情绪预测和下游回答生成共用 `local_profiles/profiles.json`。配置格式参考：
+
+```text
+profile_config.example.json
+```
+
+绑定键采用 `输入文件名::工作表名`，例如：
+
+```text
+example_dialogue.xlsx::对话整理
+multi_dialogue.xlsx::case_sheet_001
+```
+
+每个档案包含人物姓名和完整 `.docx` 或 UTF-8 `.txt` 背景。背景会同时传给情绪模型
+和下游生成模型，避免两阶段人物设定不一致。`local_profiles/` 包含敏感材料，已被
+`.gitignore` 忽略。
 
 ## Installation
 
@@ -232,6 +323,25 @@ python3 scripts/predict_emotion.py \
 ```
 
 不传 `--history-turns` 时使用当前工作表的完整历史。历史窗口不会跨越工作表，也不会包含当前行的被谈话人回答。
+
+## Downstream Validation
+
+下游实验会在同一轮中实时执行一次情绪预测和两次回答生成，并将真实回答、无情绪
+模拟回答、情绪增强模拟回答并排写入 Excel。测试前 10 轮：
+
+```bash
+python downstream/scripts/generate_responses.py \
+  --input data/example_dialogue.xlsx \
+  --limit 10 \
+  --emotion-model qwen3-8b \
+  --generation-model deepseek-v4-flash \
+  --emotion-temperature 0.0 \
+  --generation-temperature 0.4
+```
+
+输出会自动保存到 `downstream/outputs/`，文件名带日期时间。完整的实验控制变量、
+人物档案绑定、多工作表运行和输出字段说明见
+[downstream/README.md](downstream/README.md)。
 
 ## Compare Experiments
 

@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "example_person": {
+      "respondent_name": "示例人物",
+      "story_background": "example_person/story_background.txt"
+    }
+  },
+  "bindings": {
+    "dialogue.xlsx::对话整理": "example_person"
+  }
+}
+

@@ -149,7 +149,7 @@ python3 clean_sql_data.py "input/my dialogue.sql" --output-dir "my output"
 
 ```sql
 INSERT INTO `talk_message` (`chat_id`, `message`, `create_time`) VALUES (
-  '2033427135884038144',
+  '1000000000000000001',
   '审调人员：你叫什么名字？；被谈话人：我叫陈某。',
   '2026-04-22 08:20:45'
 );
